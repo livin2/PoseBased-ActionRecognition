@@ -1,0 +1,8 @@
+templates/*
+static/*
+__pycache__/
+res/
+
+_server.py
+merge_test.py
+sim_alphamerge.py
