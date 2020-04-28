@@ -39,8 +39,8 @@ class classifier():
         logger.info(self.model)
         ckpt = torch.load(self.cfg.CHEKPT,map_location=self.opt.device)
         self.model.load_state_dict(ckpt['model_state_dict'])
-        logger.info('epoch:',ckpt['epoch'])
-        logger.info('loss:',ckpt['loss'])
+        logger.info('epoch:{%.4f}' % ckpt['epoch'])
+        logger.info('loss:{%.4f}' % ckpt['loss'])
         if len(self.opt.gpus) > 1:
             self.model = torch.nn.DataParallel(self.model
                 , device_ids=self.opt.gpus).to(self.opt.device)
@@ -49,7 +49,7 @@ class classifier():
         self.model.eval()
     
     def __output(self,img,out):
-        self.showimg_all(img, out)
+        self.showimg_muti(img, out)
         
     def work(self):
         logger.info('Classifier Process (%s)' % os.getpid())
@@ -86,13 +86,13 @@ class classifier():
                     'result': result_orig
                 }       
                 img = vis_frame(orig_img, result, add_bbox=(self.opt.pose_track | self.opt.tracking))
-                if(len(result['result'])<=0):continue
-                points = result['result'][0]['keypoints'].numpy()
-
-                points = single_normalize_min_(points)
-                points = points.reshape(1,34)
-
-                out = self.model.exe(points,self.opt.device,self.holder)
+                if(len(result_orig)<=0):continue
+                out=[]
+                for i in range(len(result_orig)):
+                    points = result_orig[i]['keypoints'].numpy()
+                    points = single_normalize_min_(points)
+                    points = points.reshape(1,34)
+                    out.append(self.model.exe(points,self.opt.device,self.holder))
                 self.__output(img,out)
 
         self.clear_queues()
@@ -101,6 +101,20 @@ class classifier():
         # height, width = img.shape[:2]
         img = cv2.putText(img, tag, (20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
         img = np.array(img, dtype=np.uint8)[:, :, ::-1]
+        cv2.imshow("AlphaPose Demo", img)
+        k = cv2.waitKey(100) 
+
+    def showimg_muti(self,img,out):
+        if out is not None:
+            h = 50
+            for i in range(len(out)):
+                tag = self.cfg.tagI2W [out[i].argmax(1)]
+                img = cv2.putText(img, tag, (20,h), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,255), 2)
+                h+=50
+        else:
+            # img = cv2.putText(img, "None", (20,300), cv2.FONT_HERSHEY_SIMPLEX, 3, (255,0,255), 3)
+            pass
+        # img = np.array(img, dtype=np.uint8)[:, :, ::-1]
         cv2.imshow("AlphaPose Demo", img)
         k = cv2.waitKey(100) 
 
@@ -140,10 +154,11 @@ class classifier():
         return not self.inqueue.empty()
 
     def stop(self):
-        cv2.destroyAllWindows()
+        self.step(None,None,None,None,None,None,None)
         self.result_worker.join()
         self.clear_queues()
         print('classifier stop')
+        cv2.destroyAllWindows()
         
     
     def wait_and_put(self, queue, item):

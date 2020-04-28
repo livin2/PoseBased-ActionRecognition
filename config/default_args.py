@@ -11,6 +11,7 @@ args.inputimg='' #image-name
 args.outputpath='res/out' #output-directory
 args.save_img=False
 args.vis=False
+args.showbox=True
 args.profile = True #'add speed profiling at screen output'
 args.format = None
 
@@ -28,8 +29,8 @@ args.pose_track = False
 
 args.gpus = "0"
 args.detbatch = 5 #detection batch size PER GPU
-args.posebatch = 60 #pose estimation maximum batch size PER GPU
-args.detector = 'tracker'
+args.posebatch = 80 #pose estimation maximum batch size PER GPU
+args.detector = 'yolo' #yolo/tracker
 args.sp = False #single process
 
 args.tracking = (args.detector == 'tracker')
@@ -49,5 +50,6 @@ args.gpus = [int(i) for i in args.gpus.split(',')] if torch.cuda.device_count() 
 args.webcam = 0
 # args.video="res_data/run_3.avi"
 # args.inputpath='res_data/sit_img'
-args.detbatch = 1
-args.posebatch = 15
+# args.detbatch = 1 
+# args.posebatch = 15
+args.detector = 'yolo' #yolo/tracker

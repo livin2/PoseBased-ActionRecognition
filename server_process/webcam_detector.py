@@ -10,18 +10,21 @@ import torch.multiprocessing as mp
 
 from loguru import logger
 from alphapose.utils.presets import SimpleTransform
-from detector.tracker_api import Tracker
+# from detector.tracker_api import Tracker
 from multiprocessing.synchronize import Event as EventType
+from config.detector_apis import get_detector
 
 class WebCamDetectionLoader():
-    def __init__(self, input_source,cfg,det_cfg, opt, queueSize=1):
+    def __init__(self,cfg,det_cfg, opt, queueSize=1):
         self.cfg = cfg
         self.det_cfg = det_cfg
         self.opt = opt
         self.loadedEvent = mp.Event()
-
+        self.runningEvent = mp.Event()
         self.detector = None
-
+        # self.__set_input(input_source)
+        # self.path = mp.Value('i',-1)
+        self.path = mp.Queue(maxsize=1)
         self._input_size = cfg.DATA_PRESET.IMAGE_SIZE
         self._output_size = cfg.DATA_PRESET.HEATMAP_SIZE
 
@@ -48,13 +51,14 @@ class WebCamDetectionLoader():
 
     def __set_input(self,input_source):
         ##todo
-        stream = cv2.VideoCapture(int(input_source))
+        stream = cv2.VideoCapture(input_source)
         assert stream.isOpened(), 'Cannot capture source'
-        self.path = input_source
-        self.fourcc = int(stream.get(cv2.CAP_PROP_FOURCC))
-        self.fps = stream.get(cv2.CAP_PROP_FPS)
-        self.frameSize = (int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)), int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-        self.videoinfo = {'fourcc': self.fourcc, 'fps': self.fps, 'frameSize': self.frameSize}
+        # self.path.value = int(input_source)
+        self.path.put(input_source)
+        # self.fourcc = int(stream.get(cv2.CAP_PROP_FOURCC))
+        # self.fps = stream.get(cv2.CAP_PROP_FPS)
+        # self.frameSize = (int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)), int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        # self.videoinfo = {'fourcc': self.fourcc, 'fps': self.fps, 'frameSize': self.frameSize}
         # print('w:{%d},h:{%d}'%(int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)),int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
         # print(self.videoinfo)
         stream.release()
@@ -63,7 +67,7 @@ class WebCamDetectionLoader():
         if self.opt.sp:
             p = Thread(target=target, args=())
         else:
-            p = mp.Process(target=target, args=())
+            p = mp.Process(target=target,name='WebCamDetectionLoader',args=())
         # p.daemon = True
         p.start()
         return p
@@ -71,14 +75,26 @@ class WebCamDetectionLoader():
     def start(self,startEvent=None):
         # start a thread to pre process images for object detection
         self.startEvent = startEvent
-        self.image_preprocess_worker = self.start_worker(self.frame_preprocess)
-        return self
+        logger.info('start:')
+        print(self.startEvent)
+        image_preprocess_worker = self.start_worker(self.frame_preprocess)
+        # self.image_preprocess_worker = image_preprocess_worker
+        return [image_preprocess_worker]
+    
+    def run(self,input_source):
+        self.__set_input(input_source)
+        self.runningEvent.set()
 
+    @logger.catch
     def stop(self):
         # end threads
-        self.image_preprocess_worker.join()
+        self._stopped.value = True
+        self.runningEvent.clear()
+        self.wait_and_put(self.pose_queue,(None, None, None, None, None, None,None))
+        # self.image_preprocess_worker.join()
         # clear queues
         self.clear_queues()
+        
 
     def terminate(self):
         if self.opt.sp:
@@ -104,53 +120,68 @@ class WebCamDetectionLoader():
             return queue.get()
 
     def __load_model(self):
-        self.detector = Tracker(self.det_cfg, self.opt)
+        # self.detector = Tracker(self.det_cfg, self.opt)
+        self.detector = get_detector(self.opt)
+        self.detector.load_model() ##
         ##todo yolo and detector
+
+    def hangUp(self):
+        self.runningEvent.clear()
+        self.clear_queues()
 
     @logger.catch
     def frame_preprocess(self):
         logger.info('%s Process (%s)' % (self.__class__,os.getpid()))
         if (self.detector is None):self.__load_model()
         self.loadedEvent.set()
-
-        stream = cv2.VideoCapture(self.path)
         if(isinstance(self.startEvent,EventType)):self.startEvent.wait()
-        assert stream.isOpened(), 'Cannot capture source'
-        # keep looping infinitely
-        for i in count():
-            if self.stopped:
-                stream.release()
-                return
-            if not self.pose_queue.full():
-                # otherwise, ensure the queue has room in it
-                (grabbed, frame) = stream.read()
-                # if the `grabbed` boolean is `False`, then we have
-                # reached the end of the video file
-                if not grabbed:
-                    self.wait_and_put(self.pose_queue, (None, None, None, None, None, None, None))
+
+        while True:
+            assert self.startEvent.is_set(),'Detector not started'
+            self.runningEvent.wait()
+            inputpath = self.path.get()
+            logger.info('input:{}',inputpath)
+            stream = cv2.VideoCapture(inputpath)
+            assert stream.isOpened(), 'Cannot capture source'
+            # keep looping infinitely
+            for i in count():
+                if self.stopped:
                     stream.release()
                     return
+                if not self.runningEvent.is_set():
+                    stream.release()
+                    self.hangUp()
+                    break
+                if not self.pose_queue.full():
+                    # otherwise, ensure the queue has room in it
+                    (grabbed, frame) = stream.read()
+                    # if the `grabbed` boolean is `False`, then we have
+                    # reached the end of the video file
+                    if not grabbed:
+                        self.wait_and_put(self.pose_queue, (None, None, None, None, None, None, None))
+                        stream.release()
+                        return
 
-                # expected frame shape like (1,3,h,w) or (3,h,w)
-                img_k = self.detector.image_preprocess(frame)
+                    # expected frame shape like (1,3,h,w) or (3,h,w)
+                    img_k = self.detector.image_preprocess(frame)
 
-                if isinstance(img_k, np.ndarray):
-                    img_k = torch.from_numpy(img_k)
-                # add one dimension at the front for batch if image shape (3,h,w)
-                if img_k.dim() == 3:
-                    img_k = img_k.unsqueeze(0)
+                    if isinstance(img_k, np.ndarray):
+                        img_k = torch.from_numpy(img_k)
+                    # add one dimension at the front for batch if image shape (3,h,w)
+                    if img_k.dim() == 3:
+                        img_k = img_k.unsqueeze(0)
 
-                im_dim_list_k = frame.shape[1], frame.shape[0]
+                    im_dim_list_k = frame.shape[1], frame.shape[0]
 
-                orig_img = frame[:, :, ::-1]
-                im_name = str(i) + '.jpg'
-                # im_dim_list = im_dim_list_k
+                    orig_img = frame[:, :, ::-1]
+                    im_name = str(i) + '.jpg'
+                    # im_dim_list = im_dim_list_k
 
-                with torch.no_grad():
-                    # Record original image resolution
-                    im_dim_list_k = torch.FloatTensor(im_dim_list_k).repeat(1, 2)
-                img_det = self.image_detection((img_k, orig_img, im_name, im_dim_list_k))
-                self.image_postprocess(img_det)
+                    with torch.no_grad():
+                        # Record original image resolution
+                        im_dim_list_k = torch.FloatTensor(im_dim_list_k).repeat(1, 2)
+                    img_det = self.image_detection((img_k, orig_img, im_name, im_dim_list_k))
+                    self.image_postprocess(img_det)
 
     def image_detection(self, inputs):
         img, orig_img, im_name, im_dim_list = inputs
@@ -191,10 +222,10 @@ class WebCamDetectionLoader():
             # imgwidth = orig_img.shape[1]                print(type(box))
             for i, box in enumerate(boxes):
                 inps[i], cropped_box = self.transformation.test_transform(orig_img, box)
-                if not hasattr(self,'checksize'):
-                    print(orig_img.shape)
-                    print(inps[i].shape)
-                    self.checksize = True
+                # if not hasattr(self,'checksize'):
+                #     print(orig_img.shape)
+                #     print(inps[i].shape)
+                #     self.checksize = True
 
                 cropped_boxes[i] = torch.FloatTensor(cropped_box)
 

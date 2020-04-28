@@ -2,6 +2,7 @@ templates/*
 static/*
 __pycache__/
 res/
+model/
 
 _server.py
 merge_test.py
