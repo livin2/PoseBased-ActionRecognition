@@ -15,8 +15,8 @@ from multiprocessing.synchronize import Event as EventType
 from config.detector_apis import get_detector
 
 class WebCamDetectionLoader():
-    def __init__(self,cfg,det_cfg, opt, queueSize=1):
-        self.cfg = cfg
+    def __init__(self,pose_cfg,det_cfg, opt, queueSize=1):
+        self.cfg = pose_cfg
         self.det_cfg = det_cfg
         self.opt = opt
         self.loadedEvent = mp.Event()
@@ -25,12 +25,12 @@ class WebCamDetectionLoader():
         # self.__set_input(input_source)
         # self.path = mp.Value('i',-1)
         self.path = mp.Queue(maxsize=1)
-        self._input_size = cfg.DATA_PRESET.IMAGE_SIZE
-        self._output_size = cfg.DATA_PRESET.HEATMAP_SIZE
+        self._input_size = pose_cfg.DATA_PRESET.IMAGE_SIZE
+        self._output_size = pose_cfg.DATA_PRESET.HEATMAP_SIZE
 
-        self._sigma = cfg.DATA_PRESET.SIGMA
+        self._sigma = pose_cfg.DATA_PRESET.SIGMA
 
-        if cfg.DATA_PRESET.TYPE == 'simple':
+        if pose_cfg.DATA_PRESET.TYPE == 'simple':
             self.transformation = SimpleTransform(
                 self, scale_factor=0,
                 input_size=self._input_size,
@@ -94,7 +94,6 @@ class WebCamDetectionLoader():
         # self.image_preprocess_worker.join()
         # clear queues
         self.clear_queues()
-        
 
     def terminate(self):
         if self.opt.sp:
