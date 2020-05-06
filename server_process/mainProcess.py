@@ -30,6 +30,7 @@ class mainProcess():
         self.__toStartEvent = mp.Event()
         self.loadedEvent = mp.Event()
         self.stopped = mp.Event()
+        self.__toKillEvent = mp.Event()
         
     def __load_model(self):
         self.det_worker = self.det_loader.start(self.__toStartEvent)
@@ -44,44 +45,51 @@ class mainProcess():
     
     @logger.catch
     def work(self):
-        logger.info('Pose Process (%s)' % os.getpid())
-        if(not self.loadedEvent.is_set()):self.__load_model()
+        try:
+            logger.info('Pose Process (%s)' % os.getpid())
+            if(not self.loadedEvent.is_set()):self.__load_model()
 
-        self.__toStartEvent.wait()
-        #det time| pose time| post processing
-        
-        logger.info('Starting, press Ctrl + C to terminate...')
-        sys.stdout.flush()
-        #loop for webcam ##todo for vedio
-        im_names_desc = tqdm(loop())
-        #det time| pose time| post processing
-        profiler = Profiler({'dt': [],'pt': [],'pn': []})
-        args = self.opt
-        batchSize = args.posebatch
-        # if args.flip:batchSize = int(batchSize / 2)
-        for i in im_names_desc:
-            if self.stopped.is_set():
-                self.__stop()
-                return
-            profiler.start()
-            with torch.no_grad():
-                (inps, orig_img, im_name, boxes, scores, ids, cropped_boxes) = self.det_loader.read()
-                if orig_img is None:break
-                if boxes is None or boxes.nelement() == 0:
-                    self.actRecg.step(None, None, None, None, None, orig_img, os.path.basename(im_name))
-                    continue
-                if args.profile:profiler.step('dt')
-                # Pose Estimation
-                hm = self.poseEstim.step(inps,self.det_loader.joint_pairs)
-                if args.profile:profiler.step('pt')
-                self.actRecg.step(boxes, scores, ids, hm, cropped_boxes, orig_img, os.path.basename(im_name))
-                if args.profile:profiler.step('pn')
+            self.__toStartEvent.wait()
+            #det time| pose time| post processing
+            logger.info('Starting, press Ctrl + C to terminate...')
+            sys.stdout.flush()
+            #loop for webcam ##todo for vedio
+            im_names_desc = tqdm(loop())
+            #det time| pose time| post processing
+            profiler = Profiler(['dt','pt','pn'],
+                ['det time: {:.4f}','pose time: {:.4f}','post processing: {:.4f}'])
+            args = self.opt
+            batchSize = args.posebatch
+            # if args.flip:batchSize = int(batchSize / 2)
+            for i in im_names_desc:
+                if self.stopped.is_set():
+                    self.__stop()
+                    return
+                if self.__toKillEvent.is_set():
+                    self.__kill()
+                    return
+                if args.profile:profiler.start()
+                with torch.no_grad():
+                    (inps, orig_img, im_name, boxes, scores, ids, cropped_boxes) = self.det_loader.read()
+                    if orig_img is None:break
+                    if boxes is None or boxes.nelement() == 0:
+                        self.actRecg.step(None, None, None, None, None, orig_img, os.path.basename(im_name))
+                        continue
+                    if args.profile:profiler.step('dt')
+                    # Pose Estimation
+                    hm = self.poseEstim.step(inps,self.det_loader.joint_pairs)
+                    if args.profile:profiler.step('pt')
+                    self.actRecg.step(boxes, scores, ids, hm, cropped_boxes, orig_img, os.path.basename(im_name))
+                    if args.profile:profiler.step('pn')
 
-            if args.profile:im_names_desc.set_description(
-                    'hm:{hm}|det time: {dt:.4f} | pose time: {pt:.4f} | post processing: {pn:.4f}'.format(
-                        hm=hm.shape[0],dt=profiler.getMean('dt'), pt=profiler.getMean('pt'), pn=profiler.getMean('pn'))
-                )
-        print_finish_info()
+                if args.profile:im_names_desc.set_description(
+                        'hm:{} |'.format(hm.shape[0]) + profiler.getResStr())
+                    # 'hm:{hm}|det time: {dt:.4f} | pose time: {pt:.4f} | post processing: {pn:.4f}'.format(
+                    #         hm=hm.shape[0],dt=profiler.getMean('dt'), pt=profiler.getMean('pt'), pn=profiler.getMean('pn'))
+        except BaseException as e:
+            logger.exception(e)
+            self.__stop()
+            
 
     def start_worker(self, target):
         if self.opt.sp:
@@ -94,11 +102,20 @@ class mainProcess():
     def load_model(self):
         self.result_worker = self.start_worker(self.work)
         return self
+    
+    def wait_model_loaded(self):
+        self.loadedEvent.wait()
+    
+    def is_model_loaded(self):
+        return self.loadedEvent.is_set()
 
+    @logger.catch
     def start(self,input_source):
         assert self.loadedEvent.is_set(),'model not loaded'
         self.__toStartEvent.set()
+        logger.debug('start1')
         self.det_loader.run(input_source)
+        logger.debug('start2')
         return self
 
     def hangUp(self):
@@ -111,12 +128,37 @@ class mainProcess():
         self.stopped.set()
         self.result_worker.join()
     
+    @logger.catch
     def __stop(self): #work on PoseProcess
         self.det_loader.stop() #put a None to det_loader?
         self.actRecg.stop()
         for p in self.det_worker:
+            logger.debug('waiting WebCamDetector to stop...')
+            p.join(5)
+            logger.debug('Timeout,kill WebCamDetector...')
             p.terminate()
     
+    def kill(self):
+        self.__toKillEvent.set()
+        self.result_worker.join()
+        sys.exit(-1)
+
+    @logger.catch
+    def __kill(self):
+        logger.debug('kill called')
+        self.det_loader.stop() #put a None to det_loader?
+        self.actRecg.kill()
+        for p in self.det_worker:
+            p.terminate()
+        sys.exit(-1)
+
+    
+    def read(self,timeout=None):
+        # logger.debug('reading:{}',self.actRecg.outqueue.qsize())
+        return self.actRecg.read(timeout=timeout)
+    
+
+
     
         
 
