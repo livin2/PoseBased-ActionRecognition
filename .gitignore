@@ -6,7 +6,7 @@ res/
 model/
 
 
-_server.py
+# _server.py
 merge_test.py
 sim_alphamerge.py
 single_test.py

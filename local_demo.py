@@ -39,22 +39,13 @@ logger.add(sys.stdout, format='<y>{level}</>|\
 :<c>{line}</> -  {message}', level="DEBUG")
 
 import cv2
+from utils.pickle import drawResultToImg_MutiPerson as draw
 def showimg_muti(img,out,tagI2W):
     # logger.debug('vis_muti')
-    if img is None:return
-    if out is not None:
-        h = 50
-        for i in range(len(out)):
-            tag = tagI2W [out[i].argmax(1)]
-            img = cv2.putText(img, tag, (20,h), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,255), 2)
-            h+=50
-    else:
-        # img = cv2.putText(img, "None", (20,300), cv2.FONT_HERSHEY_SIMPLEX, 3, (255,0,255), 3)
-        pass
-    # img = np.array(img, dtype=np.uint8)[:, :, ::-1]
-    cv2.imshow("AlphaPose Demo", img)
+    cv2.imshow("AlphaPose Demo", draw(img,out,tagI2W))
     k = cv2.waitKey(100) 
 from config.apis import get_classifier_cfg
+from utils.pickle import drawResultToImg_MutiPerson as drawImg
 if __name__ == "__main__":
     try:
         # mode, input_source = check_input(args)
@@ -64,7 +55,7 @@ if __name__ == "__main__":
         # print('mode:',mode)
         print('input_source:',input_source)
         classifier_cfg = get_classifier_cfg(args)
-        mainp = MainProcess(args)
+        mainp = MainProcess(args,drawImg)
         logger.info('inited')
         mainp.load_model()
         mainp.loadedEvent.wait()
@@ -74,14 +65,14 @@ if __name__ == "__main__":
 
         # logger.debug('try...')
         # time.sleep(5)
-        logger.debug('read...')
-        for i in range(300):
-            (img,out) = mainp.read()
-            # logger.debug('readed{}',i)
-            if img is None:
-                break
-            showimg_muti(img,out,classifier_cfg.tagI2W)
-        logger.debug('end')
+        # logger.debug('read...')
+        # for i in range(60):
+        #     (img,out) = mainp.read()
+        #     # logger.debug('readed{}',i)
+        #     if img is None:
+        #         break
+        #     showimg_muti(img,out,classifier_cfg.tagI2W)
+        # logger.debug('end')
         # time.sleep(30)
         # logger.info('hangUp')
         # mainp.hangUp()
@@ -90,7 +81,7 @@ if __name__ == "__main__":
         # logger.info('restart')
         # mainp.start('rtmp://58.200.131.2:1935/livetv/gdtv')
 
-        # time.sleep(30)
+        time.sleep(30)
         mainp.stop()
     except KeyboardInterrupt:
         mainp.stop()
