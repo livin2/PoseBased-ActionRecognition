@@ -37,7 +37,7 @@ args.tracking = (args.detector == 'tracker')
 args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #mutiprocess trigger
-if platform.system() == 'Windows': args.sp = True
+# if platform.system() == 'Windows': args.sp = True
 
 #mutigpus
 args.gpus = [int(i) for i in args.gpus.split(',')] if torch.cuda.device_count() >= 1 else [-1]
@@ -46,16 +46,18 @@ args.gpus = [int(i) for i in args.gpus.split(',')] if torch.cuda.device_count() 
 # args.posebatch = args.posebatch * len(args.gpus)
 
 #addition
-args.localvis = False
+args.localvis = True
 args.realtime = True
 args.inqsize = 2 
 args.outqsize = 2 
 args.classmodel = 'dnnsingle9'
+args.timeout = 5 #timeout in ? seconds
 #### ----------------------edit------------------------------
 args.webcam = 0
 # args.video="res_data/run_3.avi"
 # args.inputpath='res_data/sit_img'
 # args.detbatch = 1 
 # args.posebatch = 15
+args.qsize=2
 args.detector = 'yolo' #yolo/tracker
 
