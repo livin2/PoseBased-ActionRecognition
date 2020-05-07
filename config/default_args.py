@@ -45,9 +45,12 @@ args.gpus = [int(i) for i in args.gpus.split(',')] if torch.cuda.device_count() 
 # args.detbatch = args.detbatch * len(args.gpus)
 # args.posebatch = args.posebatch * len(args.gpus)
 
-#actRec
+#addition
 args.localvis = False
-
+args.realtime = True
+args.inqsize = 2 
+args.outqsize = 2 
+args.classmodel = 'dnnsingle9'
 #### ----------------------edit------------------------------
 args.webcam = 0
 # args.video="res_data/run_3.avi"
@@ -55,4 +58,4 @@ args.webcam = 0
 # args.detbatch = 1 
 # args.posebatch = 15
 args.detector = 'yolo' #yolo/tracker
-args.qsize=128
+

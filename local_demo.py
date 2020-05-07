@@ -14,23 +14,20 @@ import json
 
 from detector.apis import get_detector
 from alphapose.models import builder
-from alphapose.utils.config import update_config
+
 from alphapose.utils.detector import DetectionLoader
 from alphapose.utils.pPose_nms import write_json
 from alphapose.utils.transforms import flip, flip_heatmap
 from alphapose.utils.vis import getTime
 from alphapose.utils.webcam_detector import WebCamDetectionLoader
 
-from utils.F import check_input
+# from utils.F import check_input
 from config.default_args import args
 if not args.sp:
     torch.multiprocessing.set_start_method('forkserver', force=True)
     torch.multiprocessing.set_sharing_strategy('file_system')
 
 
-from detector.tracker_api import Tracker
-from config.default_tracker_cfg import cfg as detector_cfg
-from config.default_classifier_cfg import cfg as classifier_cfg
 from server_process import MainProcess
 logger.remove()
 # logger.add(sys.stdout, format='<g>{time:MM-DD HH:mm:ss}</> |\
@@ -57,17 +54,17 @@ def showimg_muti(img,out,tagI2W):
     # img = np.array(img, dtype=np.uint8)[:, :, ::-1]
     cv2.imshow("AlphaPose Demo", img)
     k = cv2.waitKey(100) 
-
+from config.apis import get_classifier_cfg
 if __name__ == "__main__":
     try:
-        pose_cfg = update_config(args.cfg)
-        mode, input_source = check_input(args)
+        # mode, input_source = check_input(args)
         # input_source='rtmp://58.200.131.2:1935/livetv/hunantv'
+        # mode = 'webcam'
         input_source='rtmp://58.200.131.2:1935/livetv/gdtv'
-        print('mode:',mode)
+        # print('mode:',mode)
         print('input_source:',input_source)
-
-        mainp = MainProcess(args,detector_cfg,pose_cfg,classifier_cfg)
+        classifier_cfg = get_classifier_cfg(args)
+        mainp = MainProcess(args)
         logger.info('inited')
         mainp.load_model()
         mainp.loadedEvent.wait()

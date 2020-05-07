@@ -12,24 +12,16 @@ from loguru import logger
 from alphapose.utils.presets import SimpleTransform
 # from detector.tracker_api import Tracker
 from multiprocessing.synchronize import Event as EventType
-from config.detector_apis import get_detector
+from config.apis import get_detector
 
 class WebCamDetectionLoader():
-    def __init__(self,pose_cfg,det_cfg, opt, queueSize=1):
+    def __init__(self,pose_cfg, opt):
         self.cfg = pose_cfg
-        self.det_cfg = det_cfg
         self.opt = opt
-        self.loadedEvent = mp.Event()
-        self.runningEvent = mp.Event()
-        self.detector = None
-        # self.__set_input(input_source)
-        # self.path = mp.Value('i',-1)
-        self.path = mp.Queue(maxsize=1)
+
         self._input_size = pose_cfg.DATA_PRESET.IMAGE_SIZE
         self._output_size = pose_cfg.DATA_PRESET.HEATMAP_SIZE
-
         self._sigma = pose_cfg.DATA_PRESET.SIGMA
-
         if pose_cfg.DATA_PRESET.TYPE == 'simple':
             self.transformation = SimpleTransform(
                 self, scale_factor=0,
@@ -38,16 +30,17 @@ class WebCamDetectionLoader():
                 rot=0, sigma=self._sigma,
                 train=False, add_dpg=False)
 
-        # initialize the queue used to store data
-        """
-        pose_queue: the buffer storing post-processed cropped human image for pose estimation
-        """
-        if opt.sp:
-            self._stopped = False
-            self.pose_queue = Queue(maxsize=queueSize)
-        else:
-            self._stopped = mp.Value('b', False)
-            self.pose_queue = mp.Queue(maxsize=queueSize)
+        self._stopped = mp.Value('b', False)
+
+        if(opt.realtime==True):self.opt.inqsize=2
+        self.pose_queue = mp.Queue(maxsize=self.opt.inqsize)
+
+        self.loadedEvent = mp.Event()
+        self.runningEvent = mp.Event()
+        self.detector = None
+        # self.__set_input(input_source)
+        # self.path = mp.Value('i',-1)
+        self.path = mp.Queue(maxsize=1)
 
     def __set_input(self,input_source):
         ##todo
@@ -64,11 +57,7 @@ class WebCamDetectionLoader():
         stream.release()
 
     def start_worker(self, target):
-        if self.opt.sp:
-            p = Thread(target=target, args=())
-        else:
-            p = mp.Process(target=target,name='WebCamDetectionLoader',args=())
-        # p.daemon = True
+        p = mp.Process(target=target,name='WebCamDetectionLoader',args=())
         p.start()
         return p
 
@@ -96,10 +85,7 @@ class WebCamDetectionLoader():
         self.clear_queues()
 
     def terminate(self):
-        if self.opt.sp:
-            self._stopped = True
-        else:
-            self._stopped.value = True
+        self._stopped.value = True
         self.stop()
 
     def clear_queues(self):
@@ -112,17 +98,15 @@ class WebCamDetectionLoader():
     def wait_and_put(self, queue, item):
         if not self.stopped:
             queue.put(item)
-            queue.get() if queue.qsize()>1 else time.sleep(0.01)
+            queue.get() if self.opt.realtime and queue.qsize()>1 else time.sleep(0.01)
 
     def wait_and_get(self, queue):
         if not self.stopped:
             return queue.get()
 
     def __load_model(self):
-        # self.detector = Tracker(self.det_cfg, self.opt)
         self.detector = get_detector(self.opt)
         self.detector.load_model() ##
-        ##todo yolo and detector
 
     def hangUp(self):
         self.runningEvent.clear()
@@ -237,10 +221,7 @@ class WebCamDetectionLoader():
 
     @property
     def stopped(self):
-        if self.opt.sp:
-            return self._stopped
-        else:
-            return self._stopped.value
+        return self._stopped.value
 
     @property
     def joint_pairs(self):

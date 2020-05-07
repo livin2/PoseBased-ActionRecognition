@@ -11,7 +11,7 @@ from loguru import logger
 from easydict import EasyDict as edict
 from alphapose.utils.transforms import heatmap_to_coord_simple
 from alphapose.utils.pPose_nms import pose_nms
-from alphapose.utils.vis import vis_frame_fast as vis_frame    
+from alphapose.utils.vis import vis_frame_dense as vis_frame    
 from multiprocessing.synchronize import Event as EventType
 
 from actRec.F import single_normalize_min_
@@ -20,13 +20,13 @@ from actRec.models import get_model
 
 EVAL_JOINTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 class classifier():
-    def __init__(self,cfg,opt,queueSize=2,imgfn=None): #webcam queue= 2
+    def __init__(self,cfg,opt,imgfn=None): 
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.opt = opt
         self.cfg = cfg
         self.heatmap_to_coord = heatmap_to_coord_simple
-        self.inqueue = mp.Queue(maxsize=queueSize)
-        self.outqueue = mp.Queue(maxsize=queueSize)
+        self.inqueue = mp.Queue(maxsize=opt.inqsize) #webcam queue= 2
+        self.outqueue = mp.Queue(maxsize=opt.outqsize)
         self.model = None
         self.loadedEvent = mp.Event()
         self.holder = edict()
@@ -134,10 +134,7 @@ class classifier():
         k = cv2.waitKey(100) 
 
     def start_worker(self, target):
-        if self.opt.sp:
-            p = Thread(target=target, args=())
-        else:
-            p = mp.Process(target=target, args=())
+        p = mp.Process(target=target, args=())
         p.start()
         return p
 
@@ -165,7 +162,7 @@ class classifier():
     
     def wait_and_put(self, queue, item):
         queue.put(item)
-        queue.get() if queue.qsize()>1 else time.sleep(0.01)
+        queue.get() if self.opt.realtime and queue.qsize()>1 else time.sleep(0.01)
         
     def clear_queues(self):
         self.clear(self.inqueue)

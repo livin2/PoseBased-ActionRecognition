@@ -9,24 +9,28 @@ import sys
 from loguru import logger
 from easydict import EasyDict as edict
 from tqdm import tqdm
-
-from server_process import ActClassifier,PoseEstimator,WebcamDetector
-from utils.F import print_finish_info,loop
-from utils import Profiler
-
 import alphapose
 posepath = os.path.dirname(os.path.dirname(
         os.path.abspath(alphapose.__file__)))
 sys.path.append("..")
 sys.path.append(posepath)
+
+
+from alphapose.utils.config import update_config
+from server_process import ActClassifier,PoseEstimator,WebcamDetector
+from utils.F import loop
+from utils import Profiler
+from config.apis import get_classifier_cfg
+
 class mainProcess():
-    def __init__(self,opt,detector_cfg,pose_cfg,classifier_cfg): #webcam queue= 2
+    def __init__(self,opt): #webcam queue= 2
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        pose_cfg = update_config(opt.cfg)
+        classifier_cfg = get_classifier_cfg(opt)
         self.opt = opt
         self.poseEstim = PoseEstimator(pose_cfg,opt)
         self.actRecg = ActClassifier(classifier_cfg,opt)
-        # self.detector = Tracker(detector_cfg, opt)
-        self.det_loader = WebcamDetector(pose_cfg,detector_cfg,opt)
+        self.det_loader = WebcamDetector(pose_cfg,opt)
         self.__toStartEvent = mp.Event()
         self.loadedEvent = mp.Event()
         self.stopped = mp.Event()
@@ -92,10 +96,7 @@ class mainProcess():
             
 
     def start_worker(self, target):
-        if self.opt.sp:
-            p = Thread(target=target, args=())
-        else:
-            p = mp.Process(target=target,name='PoseProcess', args=())
+        p = mp.Process(target=target,name='PoseProcess', args=())
         p.start()
         return p
 

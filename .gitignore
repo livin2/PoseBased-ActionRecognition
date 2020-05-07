@@ -1,9 +1,14 @@
+.vscode/
 templates/*
 static/*
 __pycache__/
 res/
 model/
 
+
 _server.py
 merge_test.py
 sim_alphamerge.py
+single_test.py
+server_alphamerge.py
+
