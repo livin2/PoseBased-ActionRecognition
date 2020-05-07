@@ -5,8 +5,7 @@ import numpy as np
 import torch
 import time
 import sys
-    
-from loguru import logger
+
 from easydict import EasyDict as edict
 from tqdm import tqdm
 import alphapose
@@ -15,21 +14,31 @@ posepath = os.path.dirname(os.path.dirname(
 sys.path.append("..")
 sys.path.append(posepath)
 
+mp.set_start_method('forkserver', force=True)
+mp.set_sharing_strategy('file_system')
+
+from loguru import logger
+logger.remove()
+logger.add(sys.stdout, format='<y>{level}</>|{process.name}\
+(<m>{process.id}</>) |<c>{name}</>:<c>{function}</>\
+:<c>{line}</> -  {message}', level="DEBUG")
+# logger.add(sys.stdout, format='<g>{time:MM-DD HH:mm:ss}</> |\
+# {process.name}(<m>{process.id}</>) |<c>{name}</>:<c>{function}</>\
+# :<c>{line}</> - {level}\n{message}', level="INFO")
 
 from alphapose.utils.config import update_config
 from server_process import ActClassifier,PoseEstimator,WebcamDetector
 from utils.F import loop
 from utils import Profiler
 from config.apis import get_classifier_cfg
-
 class mainProcess():
-    def __init__(self,opt): #webcam queue= 2
+    def __init__(self,opt,imgfn): #webcam queue= 2
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         pose_cfg = update_config(opt.cfg)
         classifier_cfg = get_classifier_cfg(opt)
         self.opt = opt
         self.poseEstim = PoseEstimator(pose_cfg,opt)
-        self.actRecg = ActClassifier(classifier_cfg,opt)
+        self.actRecg = ActClassifier(classifier_cfg,opt,imgfn)
         self.det_loader = WebcamDetector(pose_cfg,opt)
         self.__toStartEvent = mp.Event()
         self.loadedEvent = mp.Event()
@@ -114,9 +123,9 @@ class mainProcess():
     def start(self,input_source):
         assert self.loadedEvent.is_set(),'model not loaded'
         self.__toStartEvent.set()
-        logger.debug('start1')
+        logger.debug('stard WebCamDetector...')
         self.det_loader.run(input_source)
-        logger.debug('start2')
+        logger.debug('WebCamDetector started')
         return self
 
     def hangUp(self):
@@ -127,17 +136,21 @@ class mainProcess():
 
     def stop(self): #work on MainProcess
         self.stopped.set()
+        self.__toStartEvent.set()
         self.result_worker.join()
-    
+
     @logger.catch
     def __stop(self): #work on PoseProcess
         self.det_loader.stop() #put a None to det_loader?
         self.actRecg.stop()
         for p in self.det_worker:
             logger.debug('waiting WebCamDetector to stop...')
-            p.join(5)
-            logger.debug('Timeout,kill WebCamDetector...')
-            p.terminate()
+            p.join(self.opt.timeout)
+            if(p.is_alive()):
+                logger.debug('Timeout,kill WebCamDetector...')
+                p.terminate()
+            else:
+                logger.debug('WebCamDetector stopped')
     
     def kill(self):
         self.__toKillEvent.set()

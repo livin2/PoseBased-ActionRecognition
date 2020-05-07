@@ -11,19 +11,19 @@ from loguru import logger
 from easydict import EasyDict as edict
 from alphapose.utils.transforms import heatmap_to_coord_simple
 from alphapose.utils.pPose_nms import pose_nms
-from alphapose.utils.vis import vis_frame_dense as vis_frame    
+from alphapose.utils.vis import vis_frame_fast as vis_frame    
 from multiprocessing.synchronize import Event as EventType
 
 from actRec.F import single_normalize_min_
 from actRec import models
 from actRec.models import get_model
-
 EVAL_JOINTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 class classifier():
     def __init__(self,cfg,opt,imgfn=None): 
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.opt = opt
         self.cfg = cfg
+        self.imgfn = imgfn
         self.heatmap_to_coord = heatmap_to_coord_simple
         self.inqueue = mp.Queue(maxsize=opt.inqsize) #webcam queue= 2
         self.outqueue = mp.Queue(maxsize=opt.outqsize)
@@ -51,12 +51,10 @@ class classifier():
         self.model.eval()
     
     def __output(self,img,out):
-        # self.localvis = True
         if self.localvis:
-            self.showimg_muti(img, out)
+            self.showimg(img, out)
         else:
             self.wait_and_put(self.outqueue,(img,out))
-            # logger.debug('puted:%d'%self.outqueue.qsize())
     
     def read(self,timeout=None):
         # logger.debug('reading...:%d'%self.outqueue.qsize())
@@ -118,20 +116,11 @@ class classifier():
 
         self.clear_queues()
 
-    def showimg_muti(self,img,out):
-        if img is None:return
-        if out is not None:
-            h = 50
-            for i in range(len(out)):
-                tag = self.cfg.tagI2W [out[i].argmax(1)]
-                img = cv2.putText(img, tag, (20,h), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,255), 2)
-                h+=50
-        else:
-            # img = cv2.putText(img, "None", (20,300), cv2.FONT_HERSHEY_SIMPLEX, 3, (255,0,255), 3)
-            pass
-        # img = np.array(img, dtype=np.uint8)[:, :, ::-1]
-        cv2.imshow("AlphaPose Demo", img)
-        k = cv2.waitKey(100) 
+    def showimg(self,img,out):
+        if self.imgfn is not None:
+            img = self.imgfn(img,out,self.cfg.tagI2W)
+        cv2.imshow("AlphaPose Demo",img)
+        k = cv2.waitKey(30) 
 
     def start_worker(self, target):
         p = mp.Process(target=target, args=())
