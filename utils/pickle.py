@@ -4,9 +4,17 @@ import numpy as np
 import torch
 from easydict import EasyDict as edict
 
+def argGetter(obj,key,default):
+    if (hasattr(obj,key)):
+        return getattr(obj,key)
+    return default
+
 def getArgs(new):
+    #json.loads
     new = edict(new)
     from config.default_args import args
+    # for k in args.keys():
+    #     args[k] = argGetter(new,k,args[k])
     args.detector = new.detector
     args.tracking = (args.detector == 'tracker')
     args.posemodel = new.posemodel

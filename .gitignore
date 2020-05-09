@@ -4,7 +4,8 @@ static/*
 __pycache__/
 res/
 model/
-
+alphapose/
+train/
 
 # _server.py
 merge_test.py
