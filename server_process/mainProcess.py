@@ -32,7 +32,7 @@ from utils.F import loop
 from utils import Profiler
 from config.apis import get_classifier_cfg
 class mainProcess():
-    def __init__(self,opt,imgfn): #webcam queue= 2
+    def __init__(self,opt,imgfn=None): #webcam queue= 2
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         pose_cfg = update_config(opt.cfg)
         classifier_cfg = get_classifier_cfg(opt)
@@ -75,11 +75,11 @@ class mainProcess():
             batchSize = args.posebatch
             # if args.flip:batchSize = int(batchSize / 2)
             for i in im_names_desc:
-                if self.stopped.is_set():
-                    self.__stop()
-                    return
                 if self.__toKillEvent.is_set():
                     self.__kill()
+                    return
+                if self.stopped.is_set():
+                    self.__stop()
                     return
                 if args.profile:profiler.start()
                 with torch.no_grad():
@@ -93,6 +93,7 @@ class mainProcess():
                     hm = self.poseEstim.step(inps,self.det_loader.joint_pairs)
                     if args.profile:profiler.step('pt')
                     self.actRecg.step(boxes, scores, ids, hm, cropped_boxes, orig_img, os.path.basename(im_name))
+                    #todo self.actRecg.stepJoin() 
                     if args.profile:profiler.step('pn')
 
                 if args.profile:im_names_desc.set_description(
@@ -101,6 +102,7 @@ class mainProcess():
                     #         hm=hm.shape[0],dt=profiler.getMean('dt'), pt=profiler.getMean('pt'), pn=profiler.getMean('pn'))
         except BaseException as e:
             logger.exception(e)
+        finally:
             self.__stop()
             
 
