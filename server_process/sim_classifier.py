@@ -123,7 +123,7 @@ class classifier():
         k = cv2.waitKey(30) 
 
     def start_worker(self, target):
-        p = mp.Process(target=target, args=())
+        p = mp.Process(target=target,name='ActClassifier', args=())
         p.start()
         return p
 

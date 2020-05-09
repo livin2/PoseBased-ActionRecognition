@@ -57,7 +57,7 @@ class WebCamDetectionLoader():
         stream.release()
 
     def start_worker(self, target):
-        p = mp.Process(target=target,name='WebCamDetectionLoader',args=())
+        p = mp.Process(target=target,name='WebCamDetector',args=())
         p.start()
         return p
 
