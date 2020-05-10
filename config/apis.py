@@ -18,6 +18,9 @@ def get_classifier_cfg(args):
     if args.classmodel.lower() == 'dnnsingle9':
         from config.act_dnnsingle_cfg import cfg9 
         return cfg9
+    elif args.classmodel.lower() == 'fclstm9':
+        from config.act_fclstm_cfg import cfg9 
+        return cfg9
     raise NotImplementedError
 
 def get_detector_cfg(args):

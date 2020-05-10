@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pad_packed_sequence
 
 def pack_lstm_pad(lstm,_in,_len,_hidden=None,batch_first=True):
     pack_in = pack_padded_sequence(_in, _len, batch_first,enforce_sorted=False)
-    pack_out,hc = lstm(pack_in)
+    pack_out,hc = lstm(pack_in,_hidden)
     pad_out,_len = pad_packed_sequence(pack_out,batch_first)
     return pad_out,hc
 
@@ -57,12 +57,12 @@ class FcLstm(nn.Module):
         # return F.softmax(_fc4),hc
         return _out.view(-1,_out.shape[-1]),hc
 
-    def exe_pre(self,device,holder=None):
+    def exe_pre(self,device,holder):
         holder.hc_ = None
         holder.len_ = torch.Tensor([1]).to(device)
     
-    def exe(self,input_,device,holder=None):
-        input_ = torch.Tensor(input_).to(device)
+    def exe(self,input_,device,holder):
+        input_ = torch.Tensor(input_.reshape(1,1,-1)).to(device)
         if(holder.hc_ is None):
             holder.hc_ = (torch.randn(1,1,64).to(device), torch.randn(1,1,64).to(device))#LSTM out
         out,_hc = self.__call__(input_,holder.len_,holder.hc_) # data,datalen
@@ -116,10 +116,10 @@ class dnnSingle(nn.Module):
 
         return _out.view(-1,_out.shape[-1])
 
-    def exe_pre(self,device,holder=None):
+    def exe_pre(self,device,holder):
         pass
 
-    def exe(self,input_,device,holder=None):
+    def exe(self,input_,device,holder):
         input_ = torch.Tensor(input_).to(device)
         return self.__call__(input_) # data,datalen
 
