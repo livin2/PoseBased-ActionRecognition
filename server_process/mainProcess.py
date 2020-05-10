@@ -32,7 +32,7 @@ from utils.F import loop
 from utils import Profiler
 from config.apis import get_classifier_cfg
 class mainProcess():
-    def __init__(self,opt,imgfn=None): #webcam queue= 2
+    def __init__(self,opt,imgfn=None): 
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         pose_cfg = update_config(opt.cfg)
         classifier_cfg = get_classifier_cfg(opt)
@@ -53,59 +53,48 @@ class mainProcess():
         self.actRecg.loadedEvent.wait()
         self.loadedEvent.set()
     
-    def __output(self,img,out):
-        self.showimg_all(img, out)
-    
     @logger.catch
     def work(self):
         try:
             logger.info('Pose Process (%s)' % os.getpid())
-            if(not self.loadedEvent.is_set()):self.__load_model()
-
-            self.__toStartEvent.wait()
-            #det time| pose time| post processing
-            logger.info('Starting, press Ctrl + C to terminate...')
+            if(not self.loadedEvent.is_set()):self.__load_model() #加载模型
+            self.__toStartEvent.wait() #等待启动事件
+            logger.info('Starting, press Ctrl + C to terminate...') #本地模式运行时通过KeyboardInterrupt终止应用
             sys.stdout.flush()
-            #loop for webcam ##todo for vedio
-            im_names_desc = tqdm(loop())
-            #det time| pose time| post processing
-            profiler = Profiler(['dt','pt','pn'],
-                ['det time: {:.4f}','pose time: {:.4f}','post processing: {:.4f}'])
+            im_names_desc = tqdm(loop()) #用1到无穷的生成器初始化进度条，用来统计图像帧
+            #初始化Profiler用于统计时间 det time| pose time| post processing
+            profiler = Profiler(['dt','pt','pn'],['det time: {:.4f}','pose time: {:.4f}','post processing: {:.4f}'])
             args = self.opt
             batchSize = args.posebatch
             # if args.flip:batchSize = int(batchSize / 2)
             for i in im_names_desc:
-                if self.__toKillEvent.is_set():
+                if self.__toKillEvent.is_set(): #杀死进程
                     self.__kill()
                     return
-                if self.stopped.is_set():
+                if self.stopped.is_set(): #停止进程
                     self.__stop()
                     return
-                if args.profile:profiler.start()
+                if args.profile:profiler.start() #开始统计时间
                 with torch.no_grad():
                     (inps, orig_img, im_name, boxes, scores, ids, cropped_boxes) = self.det_loader.read()
                     if orig_img is None:break
-                    if boxes is None or boxes.nelement() == 0:
+                    if boxes is None or boxes.nelement() == 0: #目标检测结果为空，直接输出原图像
                         self.actRecg.step(None, None, None, None, None, orig_img, os.path.basename(im_name))
                         continue
-                    if args.profile:profiler.step('dt')
-                    # Pose Estimation
-                    hm = self.poseEstim.step(inps,self.det_loader.joint_pairs)
-                    if args.profile:profiler.step('pt')
+                    if args.profile:profiler.step('dt') #目标检测计时
+                    hm = self.poseEstim.step(inps,self.det_loader.joint_pairs) # 姿态估计
+                    if args.profile:profiler.step('pt') #姿态估计计时
                     self.actRecg.step(boxes, scores, ids, hm, cropped_boxes, orig_img, os.path.basename(im_name))
                     #todo self.actRecg.stepJoin() 
-                    if args.profile:profiler.step('pn')
-
+                    if args.profile:profiler.step('pn') #行为识别计时
+                #输出图像中的人体个数+执行每个步骤的时间
                 if args.profile:im_names_desc.set_description(
                         'hm:{} |'.format(hm.shape[0]) + profiler.getResStr())
-                    # 'hm:{hm}|det time: {dt:.4f} | pose time: {pt:.4f} | post processing: {pn:.4f}'.format(
-                    #         hm=hm.shape[0],dt=profiler.getMean('dt'), pt=profiler.getMean('pt'), pn=profiler.getMean('pn'))
-        except BaseException as e:
+        except BaseException as e: 
             logger.exception(e)
         finally:
             self.__stop()
             
-
     def start_worker(self, target):
         p = mp.Process(target=target,name='PoseProcess', args=())
         p.start()
@@ -125,7 +114,7 @@ class mainProcess():
     def start(self,input_source):
         assert self.loadedEvent.is_set(),'model not loaded'
         self.__toStartEvent.set()
-        logger.debug('stard WebCamDetector...')
+        logger.debug('started WebCamDetector...')
         self.det_loader.run(input_source)
         logger.debug('WebCamDetector started')
         return self
@@ -168,7 +157,6 @@ class mainProcess():
             p.terminate()
         sys.exit(-1)
 
-    
     def read(self,timeout=None):
         # logger.debug('reading:{}',self.actRecg.outqueue.qsize())
         return self.actRecg.read(timeout=timeout)

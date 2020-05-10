@@ -10,9 +10,10 @@ import torch.multiprocessing as mp
 
 from loguru import logger
 from alphapose.utils.presets import SimpleTransform
-# from detector.tracker_api import Tracker
 from multiprocessing.synchronize import Event as EventType
 from config.apis import get_detector
+
+## fork from alphapose.util.webcam_detector
 
 class WebCamDetectionLoader():
     def __init__(self,pose_cfg, opt):
@@ -118,7 +119,6 @@ class WebCamDetectionLoader():
         if (self.detector is None):self.__load_model()
         self.loadedEvent.set()
         if(isinstance(self.startEvent,EventType)):self.startEvent.wait()
-
         while True:
             assert self.startEvent.is_set(),'Detector not started'
             self.runningEvent.wait()
@@ -126,45 +126,36 @@ class WebCamDetectionLoader():
             logger.info('input:{}',inputpath)
             stream = cv2.VideoCapture(inputpath)
             assert stream.isOpened(), 'Cannot capture source'
-            # keep looping infinitely
             for i in count():
-                if self.stopped:
+                if self.stopped: #停止
                     stream.release()
                     return
-                if not self.runningEvent.is_set():
+                if not self.runningEvent.is_set(): #暂停
                     stream.release()
                     self.hangUp()
                     break
                 if not self.pose_queue.full():
-                    # otherwise, ensure the queue has room in it
                     (grabbed, frame) = stream.read()
-                    # if the `grabbed` boolean is `False`, then we have
-                    # reached the end of the video file
-                    if not grabbed:
+                    if not grabbed: #往输出队列放入空对象，continue
                         self.wait_and_put(self.pose_queue, (None, None, None, None, None, None, None))
                         stream.release()
                         return
-
+                    #预处理
                     # expected frame shape like (1,3,h,w) or (3,h,w)
-                    img_k = self.detector.image_preprocess(frame)
-
+                    img_k = self.detector.image_preprocess(frame) 
                     if isinstance(img_k, np.ndarray):
                         img_k = torch.from_numpy(img_k)
                     # add one dimension at the front for batch if image shape (3,h,w)
                     if img_k.dim() == 3:
                         img_k = img_k.unsqueeze(0)
-
                     im_dim_list_k = frame.shape[1], frame.shape[0]
-
                     orig_img = frame[:, :, ::-1]
                     im_name = str(i) + '.jpg'
-                    # im_dim_list = im_dim_list_k
-
                     with torch.no_grad():
                         # Record original image resolution
                         im_dim_list_k = torch.FloatTensor(im_dim_list_k).repeat(1, 2)
-                    img_det = self.image_detection((img_k, orig_img, im_name, im_dim_list_k))
-                    self.image_postprocess(img_det)
+                    img_det = self.image_detection((img_k, orig_img, im_name, im_dim_list_k)) #目标检测
+                    self.image_postprocess(img_det) #后处理
 
     def image_detection(self, inputs):
         img, orig_img, im_name, im_dim_list = inputs
