@@ -65,15 +65,21 @@ def start():
         logger.exception(e)
         return 'fail'
 
-@app.route('/stop')
+@app.route('/stop',methods=['POST'])
 def stop():
     try:
+        data = json.loads(request.get_data())
+        print(data)
         context.mainp.stop()
+        # p.join()
+        return {'status':'ok'}
+    except BaseException as e:
+        logger.exception(e)
+        return {'status':'fail'}
     finally:
-        sys.exit()
-    return 'ok'
-    # p.join()
-
+        pass
+        # sys.exit()
+    
 import os
 if __name__ == "__main__":
     try:
