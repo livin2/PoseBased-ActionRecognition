@@ -5,7 +5,8 @@ class profiler():
         if(describes is None):
             self.context_dict = {k:([],k+': {}') for k in keys}
         else:
-            self.context_dict = {k:([],d) for k in keys for d in describes}
+            # self.context_dict = {k:([],d) for k in keys for d in describes}
+            self.context_dict = {k:([],describes[i]) for i,k in enumerate(keys)}
     def start(self):
         self.ckpt_time = getTime()
     def step(self,key):
