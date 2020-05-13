@@ -34,9 +34,9 @@ class classifier():
         # 
 
     def step(self, boxes, scores, ids, hm_data, cropped_boxes, orig_img, im_name):
-        if not self.result_worker.is_alive():
-            logger.info('classifier is no running')
-            return
+        # if not self.running():
+        #     logger.info('classifier is no running')
+        #     return
         self.wait_and_put(self.inqueue, (boxes, scores, ids, hm_data, cropped_boxes, orig_img, im_name))
     
     def __load_model(self):
@@ -53,15 +53,15 @@ class classifier():
             self.model.to(self.opt.device)
         self.model.eval()
     
-    def __output(self,img,out):
+    def __output(self,img,out,result):
         if self.localvis:
             self.showimg(img, out)
         else:
-            self.wait_and_put(self.outqueue,(img,out))
+            self.wait_and_put(self.outqueue,(img,out,result))
     
     def read(self,timeout=None):
-        if(self.outqueue.empty()):
-            assert self.result_worker.is_alive(),'classifier is no running'
+        # if(self.outqueue.empty()):
+            # assert self.running()
         return self.outqueue.get(timeout=timeout)
         
     def work(self):
@@ -74,12 +74,12 @@ class classifier():
             with torch.no_grad():
                 (boxes, scores, ids, hm_data, cropped_boxes, orig_img, im_name) = self.inqueue.get()
                 if orig_img is None: #输入为空返回
-                    self.__output(None, None)
+                    self.clear_queues()
                     return
                 orig_img = np.array(orig_img, dtype=np.uint8)[:, :, ::-1]  #改变图像通道排序 image channel RGB->BGR 
 
                 if boxes is None: #目标检测与姿态估计结果为空 直接输出原图像
-                    self.__output(orig_img, None)
+                    self.__output(orig_img, None,None)
                 else:
                     # location prediction (n, kp, 2) | score prediction (n, kp, 1)
                     pred = hm_data.cpu().data.numpy()
@@ -98,11 +98,11 @@ class classifier():
         
                     #在图像上可视化目标检测框/姿态估计点
                     result = {'imgname': im_name,'result': result_orig}
-                    from alphapose.utils.vis import vis_frame_dense as vis_frame 
+                    from alphapose.utils.vis import vis_frame_fast as vis_frame #todo
                     img = vis_frame(orig_img, result, add_bbox=True)
 
                     if(len(result_orig)<=0):#姿态估计结果为空
-                        self.__output(orig_img,None)
+                        self.__output(orig_img,None,None)
                         continue 
 
                     #对图像中每个人体进行行为识别
@@ -113,9 +113,9 @@ class classifier():
                         points = points.reshape(1,34)
                         actres = self.model.exe(points,self.opt.device,self.holder)
                         # out.append(actres)
-                        out.append(actres.cpu())
+                        out.append(actres.cpu().numpy().reshape(-1))
 
-                    self.__output(img,out)
+                    self.__output(img,out,result)
         self.clear_queues() #结束子进程
 
     def showimg(self,img,out):
@@ -141,10 +141,16 @@ class classifier():
         return not self.inqueue.empty()
 
     def stop(self):
+        if(self.result_worker.exitcode is not None):
+            return
         self.step(None,None,None,None,None,None,None)
-        self.result_worker.join()
+        self.result_worker.join(self.opt.timeout)
         self.clear_queues()
-        logger.info('classifier stop')
+        if(self.result_worker.exitcode is None):
+            self.result_worker.terminate()
+            logger.info('classifier killed')
+        else:
+            logger.info('classifier stoped')
         cv2.destroyAllWindows()
     
     def kill(self):
@@ -153,14 +159,15 @@ class classifier():
     
     def wait_and_put(self, queue, item):
         queue.put(item)
-        queue.get() if self.opt.realtime and queue.qsize()>1 else time.sleep(0.01)
+        # queue.get() if self.opt.realtime and queue.qsize()>1 else time.sleep(0.01)
+        queue.get() if queue.qsize()>1 else time.sleep(0.01)
         
     def clear_queues(self):
         self.clear(self.inqueue)
 
     def clear(self, queue):
         while not queue.empty():
-            queue.get()
+            queue.get_nowait()
 
     def count(self):
-        return self.inqueue.qsize()
+        return self.outqueue.qsize()
