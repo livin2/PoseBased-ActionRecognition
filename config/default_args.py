@@ -50,14 +50,15 @@ args.localvis = True
 args.realtime = True
 args.inqsize = 2 
 args.outqsize = 2 
+args.posemodel = 'resnet50'
 args.classmodel = 'dnnsingle9'
 args.timeout = 5 #timeout in ? seconds
 #### ----------------------edit------------------------------
 args.webcam = 0
 # args.video="res_data/run_3.avi"
 # args.inputpath='res_data/sit_img'
-# args.detbatch = 1 
-# args.posebatch = 15
+args.detbatch = 1
+args.posebatch = 5
 args.qsize=2
 args.detector = 'yolo' #yolo/tracker
 
