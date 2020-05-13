@@ -1,6 +1,6 @@
 .vscode/
-templates/*
-static/*
+# templates/*
+# static/*
 __pycache__/
 res/
 model/
@@ -12,4 +12,4 @@ merge_test.py
 sim_alphamerge.py
 single_test.py
 server_alphamerge.py
-
+*.bak
