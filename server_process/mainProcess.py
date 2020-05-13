@@ -34,12 +34,12 @@ from config.apis import get_classifier_cfg
 class mainProcess():
     def __init__(self,opt,imgfn=None): 
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        pose_cfg = update_config(opt.cfg)
-        classifier_cfg = get_classifier_cfg(opt)
+        self.pose_cfg = update_config(opt.cfg)
+        self.classifier_cfg = get_classifier_cfg(opt)
         self.opt = opt
-        self.poseEstim = PoseEstimator(pose_cfg,opt)
-        self.actRecg = ActClassifier(classifier_cfg,opt,imgfn)
-        self.det_loader = WebcamDetector(pose_cfg,opt)
+        self.poseEstim = PoseEstimator(self.pose_cfg,opt)
+        self.actRecg = ActClassifier(self.classifier_cfg,opt,imgfn)
+        self.det_loader = WebcamDetector(self.pose_cfg,opt)
         self.__toStartEvent = mp.Event()
         self.loadedEvent = mp.Event()
         self.stopped = mp.Event()
@@ -92,7 +92,6 @@ class mainProcess():
                         'hm:{} |'.format(hm.shape[0]) + profiler.getResStr())
         except BaseException as e: 
             logger.exception(e)
-        finally:
             self.__stop()
             
     def start_worker(self, target):
@@ -161,6 +160,8 @@ class mainProcess():
         # logger.debug('reading:{}',self.actRecg.outqueue.qsize())
         return self.actRecg.read(timeout=timeout)
     
+    def count(self):
+        return self.actRecg.count()
 
 
     
