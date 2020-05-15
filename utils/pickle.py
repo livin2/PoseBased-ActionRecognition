@@ -91,6 +91,7 @@ def packResultMock(imgencoded,tagI2W:list):
 def packResult(imgencoded,out,res,tagI2W:list):
     pack = edict()
     pack.img = imgencoded
+    if out is None:return pack
     pack.datas = [{
         'tag':tagI2W [np.argmax(out[i])],
         'act_scores':{tagI2W[j]:float(out[i][j]) for j in range(len(tagI2W))}
