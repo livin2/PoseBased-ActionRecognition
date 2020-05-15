@@ -44,17 +44,10 @@ class WebCamDetectionLoader():
         self.path = mp.Queue(maxsize=1)
 
     def __set_input(self,input_source):
-        ##todo
         stream = cv2.VideoCapture(input_source)
         assert stream.isOpened(), 'Cannot capture source'
         # self.path.value = int(input_source)
         self.path.put(input_source)
-        # self.fourcc = int(stream.get(cv2.CAP_PROP_FOURCC))
-        # self.fps = stream.get(cv2.CAP_PROP_FPS)
-        # self.frameSize = (int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)), int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-        # self.videoinfo = {'fourcc': self.fourcc, 'fps': self.fps, 'frameSize': self.frameSize}
-        # print('w:{%d},h:{%d}'%(int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)),int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        # print(self.videoinfo)
         stream.release()
 
     def start_worker(self, target):

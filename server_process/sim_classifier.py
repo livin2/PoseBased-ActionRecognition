@@ -158,9 +158,10 @@ class classifier():
         self.result_worker.terminate()
     
     def wait_and_put(self, queue, item):
+        # if(self.result_worker.exitcode is None):
         queue.put(item)
-        # queue.get() if self.opt.realtime and queue.qsize()>1 else time.sleep(0.01)
-        queue.get() if queue.qsize()>1 else time.sleep(0.01)
+        queue.get() if self.opt.realtime and queue.qsize()>1 else time.sleep(0.01)
+        # queue.get() if queue.qsize()>1 else time.sleep(0.01)
         
     def clear_queues(self):
         self.clear(self.inqueue)
