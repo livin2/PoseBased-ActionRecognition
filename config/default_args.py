@@ -59,6 +59,6 @@ args.webcam = 0
 # args.inputpath='res_data/sit_img'
 args.detbatch = 1
 args.posebatch = 5
-args.qsize=2
+# args.qsize=2
 args.detector = 'yolo' #yolo/tracker
 

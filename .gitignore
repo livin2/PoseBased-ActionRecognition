@@ -1,10 +1,10 @@
 .vscode/
-# templates/*
-# static/*
+templates/*
+static/*
 __pycache__/
 res/
 model/
-alphapose/
+alphapose/*
 train/
 
 # _server.py
