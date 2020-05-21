@@ -44,6 +44,9 @@ class mainProcess():
         self.loadedEvent = mp.Event()
         self.stopped = mp.Event()
         self.__toKillEvent = mp.Event()
+        m = mp.Manager()
+        self.mp_dict = m.dict()
+        self.mp_dict['img'] = None
         
     def __load_model(self):
         self.det_worker = self.det_loader.start(self.__toStartEvent)
@@ -93,14 +96,24 @@ class mainProcess():
         except BaseException as e: 
             logger.exception(e)
             self.__stop()
+
+    def image_get(self):
+        while True:
+            if self.__toKillEvent.is_set() or self.stopped.is_set():
+                return
+            # frame,out,result = self.actRecg.read(timeout=self.opt.timeout)
+            # if isinstance(frame, np.ndarray):
+            frame,out,result = self.actRecg.read()
+            self.mp_dict['img'] = (frame,out,result)
             
-    def start_worker(self, target):
-        p = mp.Process(target=target,name='PoseProcess', args=())
+    def start_worker(self, target,name):
+        p = mp.Process(target=target,name=name, args=())
         p.start()
         return p
 
     def load_model(self):
-        self.result_worker = self.start_worker(self.work)
+        self.result_worker = self.start_worker(self.work,'PoseProcess')
+        self.get_worker = self.start_worker(self.image_get,'getProcess')
         return self
     
     def wait_model_loaded(self):
@@ -128,6 +141,7 @@ class mainProcess():
         self.stopped.set()
         self.__toStartEvent.set()
         self.result_worker.join()
+        self.get_worker.join()
 
     @logger.catch
     def __stop(self): #work on PoseProcess
@@ -145,6 +159,7 @@ class mainProcess():
     def kill(self):
         self.__toKillEvent.set()
         self.result_worker.join()
+        self.get_worker.join()
         sys.exit(-1)
 
     @logger.catch
@@ -158,7 +173,8 @@ class mainProcess():
 
     def read(self,timeout=None):
         # logger.debug('reading:{}',self.actRecg.outqueue.qsize())
-        return self.actRecg.read(timeout=timeout)
+        # return self.actRecg.read(timeout=timeout)
+        return self.mp_dict['img']
     
     def count(self):
         return self.actRecg.count()

@@ -67,7 +67,7 @@ def npImgToEncodeBytes(imgframe:np.ndarray):
     # enconde_data = cv2.imencode('.png', imgframe)[1]
     h = imgframe.shape[0]
     w = imgframe.shape[1]
-    k = 0.5
+    k = 0.75
     imgframe = cv2.resize(imgframe,(int(k*w),int(k*h)))
     img_param = [int(cv2.IMWRITE_JPEG_QUALITY), 30]
     enconde_data = cv2.imencode('.jpg', imgframe,img_param)[1]
@@ -92,6 +92,7 @@ def packResult(imgencoded,out,res,tagI2W:list):
     pack = edict()
     pack.img = imgencoded
     if out is None:return pack
+    pack.length = len(out)
     pack.datas = [{
         'tag':tagI2W [np.argmax(out[i])],
         'act_scores':{tagI2W[j]:float(out[i][j]) for j in range(len(tagI2W))}

@@ -35,14 +35,14 @@ from utils.pickle import drawResultToImg_MutiPerson as draw
 def init():
     try:
         data = json.loads(request.get_data())
-        args = getArgs(data)
-        logger.debug('args:\n{}',args)
-        context.mainp = MainProcess(args,draw)
+        context.args = getArgs(data)
+        logger.debug('args:\n{}',context.args)
+        context.mainp = MainProcess(context.args,draw)
         logger.info('inited,start loading model...')
         context.mainp.load_model()
         context.mainp.loadedEvent.wait()
         logger.info('model loaded')
-        return {'status':'ok','appconfig':str(args)},201
+        return {'status':'ok','appconfig':str(context.args)},201
     except BaseException as e:
         logger.exception(e)
         return {'status':'fail'},400
@@ -57,14 +57,20 @@ def commitImage(context):
     logger.debug('try read...')
     for i in loop():
         try:
-            if(context.stope.is_set()):return 
-            frame,out,result = context.mainp.read(0.01) 
+            if(context.stopb):return 
+            # if(context.stope.is_set()):return 
+            # frame,out,result = context.mainp.read(0.01) 
+            read = context.mainp.read()
+            if read is None:
+                i -= 1
+                continue
+            frame,out,result = read
             tagI2W = context.mainp.classifier_cfg.tagI2W
             if isinstance(frame, np.ndarray):
                 enconde_img = npImgToEncodeBytes(frame)
                 toSend = packResult(enconde_img,out,result,tagI2W)
                 socketio.emit('image_frame',toSend,namespace='/vis')
-                socketio.sleep(0.01)
+                socketio.sleep(0.02)
         except EmptyException as e:
             socketio.sleep(3)
             logger.debug('{} item waitting',context.mainp.count())
@@ -86,7 +92,8 @@ def start():
         logger.info('starting... ')
         input_source = vinfo.inp
         context.mainp.start(input_source)
-        context.stope = mp.Event()
+        # context.stope = mp.Event()
+        context.stopb = False
         if(not context.mainp.opt.localvis):
             socketio.start_background_task(commitImage,context)
         return {'status':'ok','input_info':str(vinfo)}
@@ -100,7 +107,9 @@ def stop():
         data = json.loads(request.get_data())
         logger.debug(data)
         context.mainp.stop()
-        context.stope.set()
+        # context.stope.set()
+        context.stopb = True
+        logger.debug('stop signal')
         return {'status':'ok'}
     except BaseException as e:
         logger.exception(e)
@@ -110,7 +119,7 @@ def stop():
 def pause():
     try:
         context.mainp.hangUp()
-        return {'status':'ok','app_info':context.mainp.opt}
+        return {'status':'ok','app_info':str(context.args)}
     except BaseException as e:
         logger.exception(e)
         return {'status':'fail'},500
