@@ -47,6 +47,7 @@ class mainProcess():
         m = mp.Manager()
         self.mp_dict = m.dict()
         self.mp_dict['img'] = None
+        self.mp_dict['fresh'] = False
         
     def __load_model(self):
         self.det_worker = self.det_loader.start(self.__toStartEvent)
@@ -105,6 +106,7 @@ class mainProcess():
             # if isinstance(frame, np.ndarray):
             frame,out,result = self.actRecg.read()
             self.mp_dict['img'] = (frame,out,result)
+            self.mp_dict['fresh'] = True
             
     def start_worker(self, target,name):
         p = mp.Process(target=target,name=name, args=())
@@ -174,7 +176,9 @@ class mainProcess():
     def read(self,timeout=None):
         # logger.debug('reading:{}',self.actRecg.outqueue.qsize())
         # return self.actRecg.read(timeout=timeout)
-        return self.mp_dict['img']
+        if (self.mp_dict['fresh']):
+            return self.mp_dict['img']
+        return None
     
     def count(self):
         return self.actRecg.count()
