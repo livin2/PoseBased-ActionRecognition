@@ -115,7 +115,8 @@ class mainProcess():
 
     def load_model(self):
         self.result_worker = self.start_worker(self.work,'PoseProcess')
-        self.get_worker = self.start_worker(self.image_get,'getProcess')
+        if(not self.opt.localvis):
+            self.get_worker = self.start_worker(self.image_get,'getProcess')
         return self
     
     def wait_model_loaded(self):
@@ -143,7 +144,8 @@ class mainProcess():
         self.stopped.set()
         self.__toStartEvent.set()
         self.result_worker.join()
-        self.get_worker.join()
+        if(not self.opt.localvis):
+            self.get_worker.join()
 
     @logger.catch
     def __stop(self): #work on PoseProcess
@@ -161,7 +163,8 @@ class mainProcess():
     def kill(self):
         self.__toKillEvent.set()
         self.result_worker.join()
-        self.get_worker.join()
+        if(not self.opt.localvis):
+            self.get_worker.terminate()
         sys.exit(-1)
 
     @logger.catch
