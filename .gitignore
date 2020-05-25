@@ -5,11 +5,17 @@ __pycache__/
 res/
 model/
 alphapose/*
-train/
+train/data/*
+train/data_orig/*
+train/out/*
+train/dump/*
+.ipynb_checkpoints/
 
 # _server.py
 merge_test.py
 sim_alphamerge.py
 single_test.py
 server_alphamerge.py
+
+*.log
 *.bak

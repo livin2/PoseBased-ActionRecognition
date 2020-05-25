@@ -1,4 +1,13 @@
 import numpy as np
+def  referto_skeleton_(pose:np.ndarray,ref_idx:int):
+    #inplace opt
+    pose = pose.reshape(len(pose),-1,2)
+    ref_x = pose[:,ref_idx,0] #.copy()
+    ref_y = pose[:,ref_idx,1]
+    for i in range(len(pose)):
+        pose[i,:,0]-= ref_x[i]
+        pose[i,:,1]-= ref_y[i]
+    return pose
 def  normalize_referto_skeleton_(pose:np.ndarray,ref_idx:int):
     #inplace opt
     pose = pose.reshape(len(pose),-1,2)
