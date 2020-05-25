@@ -38,7 +38,9 @@ def getArgs(new):
         if(args.gpus[0]==-1):logger.info('no cuda device available')
         args.detbatch = args.detbatch * len(args.gpus)
         args.posebatch = args.posebatch * len(args.gpus)
-    else: args.device = "cpu"
+    else: 
+        args.gpus = [-1]
+        args.device = "cpu"
     if args.realtime:
         args.inqsize=2
         args.outqsize=2
@@ -53,6 +55,7 @@ def getInputInfo(data):
         res.inp = data.input_path
     elif data.input_type != 'camera':
         raise NotImplementedError
+    res.type = data.input_type
     stream = cv2.VideoCapture(res.inp)
     assert stream.isOpened()
     res.fourcc = int(stream.get(cv2.CAP_PROP_FOURCC))
@@ -62,14 +65,14 @@ def getInputInfo(data):
     stream.release()
     return res
 
-def npImgToEncodeBytes(imgframe:np.ndarray):
+def npImgToEncodeBytes(imgframe:np.ndarray,k=0.75,q=30):
     # assert isinstance(imgframe, np.ndarray),'input is not np.ndarray'
     # enconde_data = cv2.imencode('.png', imgframe)[1]
     h = imgframe.shape[0]
     w = imgframe.shape[1]
-    k = 0.75
+    # k = 0.75
     imgframe = cv2.resize(imgframe,(int(k*w),int(k*h)))
-    img_param = [int(cv2.IMWRITE_JPEG_QUALITY), 30]
+    img_param = [int(cv2.IMWRITE_JPEG_QUALITY), q]
     enconde_data = cv2.imencode('.jpg', imgframe,img_param)[1]
     return enconde_data.tostring()
 
