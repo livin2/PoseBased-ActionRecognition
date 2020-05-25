@@ -75,6 +75,7 @@ class classifier():
                 (boxes, scores, ids, hm_data, cropped_boxes, orig_img, im_name) = self.inqueue.get()
                 if orig_img is None: #输入为空返回
                     self.clear_queues()
+                    self.__output(None, None,None)
                     return
                 orig_img = np.array(orig_img, dtype=np.uint8)[:, :, ::-1]  #改变图像通道排序 image channel RGB->BGR 
 
@@ -143,9 +144,9 @@ class classifier():
     def stop(self):
         if(self.result_worker.exitcode is not None):
             return
+        self.clear_queues()
         self.step(None,None,None,None,None,None,None)
         self.result_worker.join(self.opt.timeout)
-        self.clear_queues()
         if(self.result_worker.exitcode is None):
             self.result_worker.terminate()
             logger.info('classifier killed')
@@ -154,7 +155,7 @@ class classifier():
         cv2.destroyAllWindows()
     
     def kill(self):
-        self.clear_queues()
+        # self.clear_queues()
         self.result_worker.terminate()
     
     def wait_and_put(self, queue, item):

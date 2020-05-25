@@ -9,8 +9,8 @@ def set_posemodel_cfg(args):
         args.checkpoint = 'model/pose_res50_dcn/fast_dcn_res50_256x192.pth'
         return args
     elif args.posemodel.lower() == 'resnet152-duc':
-        args.cfg = 'model/pose_res152_dcu/256x192_res152_lr1e-3_1x-duc.yaml'
-        args.checkpoint = 'model/pose_res152_dcu/fast_421_res152_256x192.pth'
+        args.cfg = 'model/pose_res152_duc/256x192_res152_lr1e-3_1x-duc.yaml'
+        args.checkpoint = 'model/pose_res152_duc/fast_421_res152_256x192.pth'
         return args
     raise NotImplementedError
 

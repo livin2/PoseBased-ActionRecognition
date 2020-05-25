@@ -72,11 +72,12 @@ class WebCamDetectionLoader():
     def stop(self):
         # end threads
         self._stopped.value = True
-        self.runningEvent.clear()
-        self.wait_and_put(self.pose_queue,(None, None, None, None, None, None,None))
+        self.runningEvent.set()
+        self.clear_queues()
+        self.pose_queue.put((None, None, None, None, None, None,None))
         # self.image_preprocess_worker.join()
         # clear queues
-        self.clear_queues()
+        
 
     def terminate(self):
         self._stopped.value = True
@@ -106,6 +107,11 @@ class WebCamDetectionLoader():
         self.runningEvent.clear()
         self.clear_queues()
 
+    def onStop(self):
+        self.clear_queues()
+        self.pose_queue.put((None, None, None, None, None, None,None)) 
+
+
     @logger.catch
     def frame_preprocess(self):
         logger.info('%s Process (%s)' % (self.__class__,os.getpid()))
@@ -115,6 +121,9 @@ class WebCamDetectionLoader():
         while True:
             assert self.startEvent.is_set(),'Detector not started'
             self.runningEvent.wait()
+            if self.stopped:
+                self.onStop()
+                return
             inputpath = self.path.get()
             logger.info('input:{}',inputpath)
             stream = cv2.VideoCapture(inputpath)
@@ -122,6 +131,7 @@ class WebCamDetectionLoader():
             for i in count():
                 if self.stopped: #停止
                     stream.release()
+                    self.onStop()
                     return
                 if not self.runningEvent.is_set(): #暂停
                     stream.release()

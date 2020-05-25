@@ -81,7 +81,9 @@ class mainProcess():
                 if args.profile:profiler.start() #开始统计时间
                 with torch.no_grad():
                     (inps, orig_img, im_name, boxes, scores, ids, cropped_boxes) = self.det_loader.read()
-                    if orig_img is None:break
+                    if orig_img is None:
+                        self.actRecg.step(None, None, None, None, None, None, None)
+                        break
                     if boxes is None or boxes.nelement() == 0: #目标检测结果为空，直接输出原图像
                         self.actRecg.step(None, None, None, None, None, orig_img, os.path.basename(im_name))
                         continue
@@ -101,10 +103,14 @@ class mainProcess():
     def image_get(self):
         while True:
             if self.__toKillEvent.is_set() or self.stopped.is_set():
+                logger.debug('getProcess stopped')
                 return
             # frame,out,result = self.actRecg.read(timeout=self.opt.timeout)
             # if isinstance(frame, np.ndarray):
             frame,out,result = self.actRecg.read()
+            if frame is None:
+                logger.debug('getProcess stopped')
+                return
             self.mp_dict['img'] = (frame,out,result)
             self.mp_dict['fresh'] = True
             
@@ -115,7 +121,8 @@ class mainProcess():
 
     def load_model(self):
         self.result_worker = self.start_worker(self.work,'PoseProcess')
-        self.get_worker = self.start_worker(self.image_get,'getProcess')
+        if(not self.opt.localvis):
+            self.get_worker = self.start_worker(self.image_get,'getProcess')
         return self
     
     def wait_model_loaded(self):
@@ -139,11 +146,15 @@ class mainProcess():
     def running(self):
         return not self.stopped.is_set()
 
+    @logger.catch
     def stop(self): #work on MainProcess
         self.stopped.set()
         self.__toStartEvent.set()
+        self.det_loader.stop()
+        # self.det_loader.run(0)
         self.result_worker.join()
-        self.get_worker.join()
+        if(not self.opt.localvis):
+            self.get_worker.join()
 
     @logger.catch
     def __stop(self): #work on PoseProcess
@@ -156,12 +167,15 @@ class mainProcess():
                 logger.debug('Timeout,kill WebCamDetector...')
                 p.terminate()
             else:
+                self.det_loader.clear_queues()
                 logger.debug('WebCamDetector stopped')
     
     def kill(self):
         self.__toKillEvent.set()
         self.result_worker.join()
-        self.get_worker.join()
+        if(not self.opt.localvis):
+            self.get_worker.terminate()
+            logger.debug('getProcess killed')
         sys.exit(-1)
 
     @logger.catch
