@@ -82,6 +82,7 @@ class mainProcess():
                 with torch.no_grad():
                     (inps, orig_img, im_name, boxes, scores, ids, cropped_boxes) = self.det_loader.read()
                     if orig_img is None:
+                        logger.debug('not grabbed')
                         self.actRecg.step(None, None, None, None, None, None, None)
                         break
                     if boxes is None or boxes.nelement() == 0: #目标检测结果为空，直接输出原图像
@@ -191,6 +192,7 @@ class mainProcess():
         # logger.debug('reading:{}',self.actRecg.outqueue.qsize())
         # return self.actRecg.read(timeout=timeout)
         if (self.mp_dict['fresh']):
+            self.mp_dict['fresh'] = False
             return self.mp_dict['img']
         return None
     

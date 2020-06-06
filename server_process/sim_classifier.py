@@ -99,7 +99,8 @@ class classifier():
         
                     #在图像上可视化目标检测框/姿态估计点
                     result = {'imgname': im_name,'result': result_orig}
-                    from alphapose.utils.vis import vis_frame_fast as vis_frame #todo
+                    # from alphapose.utils.vis import vis_frame_fast as vis_frame #todo
+                    from actRec.F import vis_frame_fast as vis_frame
                     img = vis_frame(orig_img, result, add_bbox=True)
 
                     if(len(result_orig)<=0):#姿态估计结果为空

@@ -47,6 +47,7 @@ class WebCamDetectionLoader():
         stream = cv2.VideoCapture(input_source)
         assert stream.isOpened(), 'Cannot capture source'
         # self.path.value = int(input_source)
+        logger.info('input:{}',input_source)
         self.path.put(input_source)
         stream.release()
 
@@ -109,6 +110,7 @@ class WebCamDetectionLoader():
 
     def onStop(self):
         self.clear_queues()
+        logger.debug('on stop')
         self.pose_queue.put((None, None, None, None, None, None,None)) 
 
 
@@ -140,6 +142,7 @@ class WebCamDetectionLoader():
                 if not self.pose_queue.full():
                     (grabbed, frame) = stream.read()
                     if not grabbed: #往输出队列放入空对象，continue
+                        logger.debug('not grabbed')
                         self.wait_and_put(self.pose_queue, (None, None, None, None, None, None, None))
                         stream.release()
                         return
@@ -190,6 +193,7 @@ class WebCamDetectionLoader():
         with torch.no_grad():
             (orig_img, im_name, boxes, scores, ids, inps, cropped_boxes) = inputs
             if orig_img is None or self.stopped:
+                logger.debug('not grabbed')
                 self.wait_and_put(self.pose_queue, (None, None, None, None, None, None, None))
                 return
             if boxes is None or boxes.nelement() == 0:
