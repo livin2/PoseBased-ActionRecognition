@@ -31,6 +31,7 @@ def socketio_wait(flagfn,timeout=0.01):
 from utils.pickle import getArgs
 from server_process import MainProcess
 from utils.pickle import drawResultToImg_MutiPerson as draw
+
 @app.route('/init',methods=['POST'])
 def init():
     try:
@@ -38,6 +39,7 @@ def init():
         context.args = getArgs(data)
         logger.debug('args:\n{}',context.args)
         context.mainp = MainProcess(context.args,draw)
+        # context.vinfo = None
         logger.info('inited,start loading model...')
         context.mainp.load_model()
         context.mainp.loadedEvent.wait()
@@ -52,6 +54,7 @@ from queue import Empty as EmptyException
 from utils.pickle import npImgToEncodeBytes
 from utils.pickle import packResult
 from utils.F import loop
+
 @logger.catch
 def commitImage(context):
     logger.debug('try read...')
@@ -66,8 +69,12 @@ def commitImage(context):
                 continue
             frame,out,result = read
             tagI2W = context.mainp.classifier_cfg.tagI2W
+
             if isinstance(frame, np.ndarray):
-                enconde_img = npImgToEncodeBytes(frame)
+                if context.vinfo.type == 'camera':
+                    enconde_img = npImgToEncodeBytes(frame,1,50)
+                else:
+                    enconde_img = npImgToEncodeBytes(frame,0.65,35)
                 toSend = packResult(enconde_img,out,result,tagI2W)
                 socketio.emit('image_frame',toSend,namespace='/vis')
                 socketio.sleep(0.02)
@@ -81,6 +88,7 @@ def commitImage(context):
 
 from utils.pickle import getInputInfo
 import multiprocessing as mp
+
 @logger.catch
 @app.route('/start',methods=['POST'])
 def start():
