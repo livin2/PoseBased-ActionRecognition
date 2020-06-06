@@ -104,19 +104,21 @@ if __name__ == "__main__":
     inps = tqdm(vlist)
     # inps = vlist
     # logger.info(vlist)
-    # pose_cfg = update_config(args.cfg)
-    # poseEstim = PoseEstimator(pose_cfg,args)
-    # # logger.debug('loading pose model...')
-    # poseEstim.load_model()
-    # detector = get_detector(args)
-    # # detector.load_model()
-    # # logger.debug('pose model loaded')
-
-    # for idx,inp in enumerate(inps):
-    #     # idx += offset
-    #     if idx<offset:continue
-    #     args.outputpath = OUTROOTPATH+'/'+getActTagFromPath(inp)+'_%d'%idx
-    #     mkdirs(args.outputpath)
-    #     if(os.path.splitext(fpath)[1] == '.avi'):
-    #         des = process(idx,inp,pose_cfg,poseEstim,detector)
-    #     if des is not None:inps.set_description(des%idx)
+    pose_cfg = update_config(args.cfg)
+    poseEstim = PoseEstimator(pose_cfg,args)
+    logger.debug('loading pose model...')
+    poseEstim.load_model()
+    logger.debug('pose model loaded')
+    logger.debug('loading det model...')
+    detector = get_detector(args)
+    detector.load_model()
+    logger.debug('pose det loaded')
+    
+    for idx,inp in enumerate(inps):
+        idx += offset
+        if idx<offset:continue
+        args.outputpath = OUTROOTPATH+'/'+getActTagFromPath(inp)+'_%d'%idx
+        mkdirs(args.outputpath)
+        if(os.path.splitext(fpath)[1] == '.avi'):
+            des = process(idx,inp,pose_cfg,poseEstim,detector)
+        if des is not None:inps.set_description(des%idx)

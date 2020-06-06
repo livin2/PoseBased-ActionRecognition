@@ -29,7 +29,7 @@ class FcLstm(nn.Module):
     def __init__(self,input_dim,class_num,batch_first=True,initrange=0.5):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, 64)
-        # self.fc2 = nn.Linear(128, 64)
+        self.fc2 = nn.Linear(128, 64)
         self.lstm = nn.LSTM(64,64,batch_first=batch_first)
         self.fc3 = nn.Linear(64, 16)
         self.fc4 = nn.Linear(16, class_num)
@@ -39,8 +39,8 @@ class FcLstm(nn.Module):
     def init_weights(self,initrange):
         self.fc1.weight.data.uniform_(-initrange, initrange)
         self.fc1.bias.data.zero_()
-        # self.fc2.weight.data.uniform_(-initrange, initrange)
-        # self.fc2.bias.data.zero_()
+        self.fc2.weight.data.uniform_(-initrange, initrange)
+        self.fc2.bias.data.zero_()
         self.fc3.weight.data.uniform_(-initrange, initrange)
         self.fc3.bias.data.zero_()
         self.fc4.weight.data.uniform_(-initrange, initrange)
@@ -48,8 +48,8 @@ class FcLstm(nn.Module):
 
     def forward(self, _input,_len,_hidden):
         _fc1   = self.fc1(_input)
-        # _fc2   = self.fc2(_fc1)
-        _lstm,hc = pack_lstm_pad(self.lstm,_fc1,_len,_hidden,self.batch_first)
+        _fc2   = self.fc2(_fc1)
+        _lstm,hc = pack_lstm_pad(self.lstm,_fc2,_len,_hidden,self.batch_first)
         _lstm_m = F.adaptive_max_pool2d(_lstm,[1,64])
         _fc3   = self.fc3(_lstm_m)
         _fc4   = self.fc4(_fc3)
