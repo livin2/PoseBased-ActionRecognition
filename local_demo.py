@@ -31,8 +31,8 @@ from utils.pickle import drawResultToImg_MutiPerson as drawImg
 if __name__ == "__main__":
     try:
         # input_source='rtmp://58.200.131.2:1935/livetv/hunantv'
-        # input_source='rtmp://58.200.131.2:1935/livetv/gdtv'
-        input_source=0
+        input_source='rtmp://58.200.131.2:1935/livetv/gdtv'
+        # input_source=0
         # mainp = MainProcess(args,drawImg)
         # stream = cv2.VideoCapture(input_source)
         # assert stream.isOpened(), 'Cannot capture source'
