@@ -123,8 +123,10 @@ class classifier():
     def showimg(self,img,out):
         if self.imgfn is not None:
             img = self.imgfn(img,out,self.cfg.tagI2W)
-        cv2.imshow("AlphaPose Demo",img)
-        k = cv2.waitKey(30) 
+            if img is None:
+                logger.error('img is None,can cause by video stream interrupted')
+            cv2.imshow("AlphaPose Demo",img)
+            k = cv2.waitKey(30) 
 
     def start_worker(self, target):
         p = mp.Process(target=target,name='ActClassifier', args=())
